@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Virtual Piano</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}
+body{background:#0b1120;min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;color:white;padding:20px}
+h2{margin-bottom:20px;color:#8b5cf6}
+.piano{display:flex;position:relative;background:#1e293b;padding:20px 10px 10px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.4)}
+.key{position:relative;width:50px;height:160px;background:white;border-radius:0 0 8px 8px;cursor:pointer;transition:0.1s;border:1px solid #cbd5e1;display:flex;align-items:flex-end;justify-content:center;padding-bottom:10px;font-size:12px;color:#475569}
+.key.active,.key:active{background:#e2e8f0;height:158px;transform:translateY(2px)}
+.key.black{position:absolute;width:32px;height:100px;background:#0f172a;color:white;border-radius:0 0 6px 6px;z-index:2;margin-left:-16px}
+.key.black.active,.key.black:active{background:#334155}
+.hint{margin-top:15px;color:#94a3b8;font-size:14px;text-align:center}
+</style>
+</head>
+<body>
+<h2>🎹 Virtual Piano</h2>
+<div class="piano" id="piano"></div>
+<p class="hint">Klaviatura: A S D F G H J | Q W E R T Y U (oq) | Z X C V B (qora)</p>
+<script>
+const notes=[
+  {n:'C',k:'a',freq:261.63,type:'white'},{n:'C#',k:'z',freq:277.18,type:'black'},
+  {n:'D',k:'s',freq:293.66,type:'white'},{n:'D#',k:'x',freq:311.13,type:'black'},
+  {n:'E',k:'d',freq:329.63,type:'white'},{n:'F',k:'f',freq:349.23,type:'white'},
+  {n:'F#',k:'c',freq:369.99,type:'black'},{n:'G',k:'g',freq:392.00,type:'white'},
+  {n:'G#',k:'v',freq:415.30,type:'black'},{n:'A',k:'h',freq:440.00,type:'white'},
+  {n:'A#',k:'b',freq:466.16,type:'black'},{n:'B',k:'j',freq:493.88,type:'white'},
+  {n:'C5',k:'k',freq:523.25,type:'white'}
+];
+const piano=document.getElementById('piano');
+const ctx=new(window.AudioContext||window.webkitAudioContext)();
+const oscMap={};
+
+notes.forEach(n=>{
+  const key=document.createElement('div');
+  key.className=`key ${n.type}`;
+  key.textContent=n.n;
+  key.dataset.note=n.n;
+  if(n.type==='black') key.style.left='auto';
+  piano.appendChild(key);
+});
+
+document.querySelectorAll('.key').forEach((el,i)=>{
+  el.onmousedown=()=>play(notes[i]);
+  el.onmouseup=el.onmouseleave=()=>stop(notes[i]);
+});
+
+function play(note){
+  if(ctx.state==='suspended')ctx.resume();
+  if(!oscMap[note.n]){
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);
+    o.type='sine';o.frequency.value=note.freq;
+    g.gain.setValueAtTime(0.3,ctx.currentTime);
+    o.start();
+    oscMap[note.n]={o,g};
+  }
+  document.querySelector(`.key[data-note="${note.n}"]`).classList.add('active');
+}
+function stop(note){
+  if(oscMap[note.n]){
+    const{o,g}=oscMap[note.n];
+    g.gain.exponentialRampToValueAtTime(0.01,ctx.currentTime+0.1);
+    setTimeout(()=>{o.stop();delete oscMap[note.n]},100);
+  }
+  document.querySelector(`.key[data-note="${note.n}"]`).classList.remove('active');
+}
+
+const keyMap={};notes.forEach(n=>keyMap[n.k]=n);
+document.addEventListener('keydown',e=>{if(keyMap[e.key])play(keyMap[e.key])});
+document.addEventListener('keyup',e=>{if(keyMap[e.key])stop(keyMap[e.key])});
+</script>
+</body>
+</html>
